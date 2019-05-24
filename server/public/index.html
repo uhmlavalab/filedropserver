@@ -1,0 +1,45 @@
+<!DOCTYPE html>
+<html lang="en">
+	<head>
+		<meta charset="utf-8">
+		<link rel="icon" href="favicon.ico">
+		<title>Upload Test</title>
+
+
+		<style>
+			* {
+				font-family: Arial, Helvetica, sans-serif;
+			}
+
+		</style>
+	</head>
+	<!-- ============================================================================================================================================= Body -->
+	<body>
+
+
+	
+		<!-- <img id="i_test" src="docpage.png" alt=""
+			style="width:50%;height:50%"> -->
+
+		<h1>Drop a file to upload on the page</h1>
+
+
+		<div id="uploadStatus">
+				Drop files here
+			</div>
+	
+
+		<div id="dropZone"
+			style="position:absolute; left: -100px; top: -100px;
+			width:1%; height:1%;
+			border:1px solid black;
+			background:lightgreen;
+			overflow: hidden"
+			ondrop="handleDrop(event)">
+			Drop files here
+		</div>
+	
+	
+		<script src="src/uploadMain.js"></script>
+	</body>
+</html>

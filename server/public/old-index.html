@@ -1,0 +1,35 @@
+<!DOCTYPE html>
+<html lang="en">
+	<head>
+		<meta charset="utf-8">
+		<link rel="icon" href="favicon.ico">
+		<title>Main Page</title>
+	</head>
+	<!-- ============================================================================================================================================= Body -->
+	<body>
+
+
+		<h1> Hello World </h1>
+
+
+		<div id="sendDiv">
+
+			<input type="text" id="inbox" size="40">
+			<button id="ibSend" onclick="sendInbox()">Send</button>
+
+		</div>
+
+
+		<div id="serverResponse"> </div>
+
+
+
+		<!-- JavaScript references placed at the end of the document so the pages load faster -->
+		<script type="text/javascript" src="src/websocket.io.js"></script>
+		<script type="text/javascript" src="src/index-wsio.js"></script>
+		<script type="text/javascript">
+			initializeWS();
+		</script>
+
+	</body>
+</html>
