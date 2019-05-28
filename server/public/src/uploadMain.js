@@ -8,6 +8,7 @@ var fileDragSettings = {
 	delay: 2000,
 };
 
+var uploadLocationRadials = [];
 
 //--------------------------------------------------------------------------------------------------------------------------
 
@@ -17,9 +18,51 @@ window.addEventListener("dragover", handleDragOver);
 window.addEventListener("drop", (e) => { e.preventDefault(); });
 dropZone.addEventListener("dragover", handleDragOver);
 
+updateUploadDestinations();
+
+
 
 
 //--------------------------------------------------------------------------------------------------------------------------
+function updateUploadDestinations() {
+
+	// For each entryin config.alternativeLocations add a radial
+	let radialHolder = document.getElementById("radialHolder");
+	let radial, label;
+	for (let i = 0; i < config.alternativeLocations.length; i++) {
+		radialHolder.appendChild(document.createElement("br"));
+		radial = document.createElement("input");
+		radial.id = "radial" + i;
+		radial.type = "radio";
+		radial.name = "uploadDestination";
+		radial.value = config.alternativeLocations[i].description;
+		radial.configData = config.alternativeLocations[i];
+		label = document.createElement("label");
+		// label.for = radial.id;
+		label.setAttribute("for", radial.id); // Because "for" isn't mapped with dot notation.
+		label.id = "labelFor" + radial.id;
+		label.textContent = config.alternativeLocations[i].description;
+		label.configData = config.alternativeLocations[i];
+
+		if (radial.value === "HOSTEDLOCATION") {
+			radial.checked = true;
+			radial.value = window.location.hostname;
+			label.textContent = radial.value;
+		}
+		radialHolder.appendChild(radial);
+		radialHolder.appendChild(label);
+		uploadLocationRadials.push(radial);
+	}
+}
+
+function whichRadialSelected() {
+	for (let i = 0; i < uploadLocationRadials.length; i++) {
+		if (uploadLocationRadials[i].checked) {
+			return uploadLocationRadials[i];
+		}
+	}
+}
+
 
 // ------------------------------------------------------------
 // File drop handling
@@ -108,7 +151,6 @@ function uploadFiles(files) {
 	};
 
 	var loadCallback = function(event) {
-		console.log("Unsure if loadCallback triggers");
 		// Get the name and type
 		var sn = event.target.response.substring(event.target.response.indexOf("name: ") + 7);
 		var st = event.target.response.substring(event.target.response.indexOf("type: ") + 7);
@@ -132,22 +174,75 @@ function uploadFiles(files) {
 	};
 
 	// Start upload
-	let array_xhr = [];
 	let maxUploadSize = 20 * (1024 * 1024 * 1024); // 20GB
+	var xhr, radial, cfg;
 	// Converting value to boolean
 	for (var i = 0; i < files.length; i++) {
 		if (files[i].size <= maxUploadSize) {
 			var formdata = new FormData();
 			formdata.append("file" + i.toString(), files[i]);
 
-			var xhr = new XMLHttpRequest();
-			// add the request into the array
-			array_xhr.push(xhr);
-			xhr.open("POST", "upload", true);
-			xhr.upload.id = "file" + i.toString() + " > " + files[i].name;
-			xhr.upload.addEventListener("progress", progressCallback, false);
-			xhr.addEventListener("load", loadCallback, false);
-			xhr.send(formdata);
+			
+			// Depending on the configData, send differently
+			radial = whichRadialSelected();
+			cfg = radial.configData;
+			for (let locIndex = 0; locIndex < cfg.hostnames.length; locIndex++) {
+				// Start making the request
+				xhr = new XMLHttpRequest();
+				xhr.upload.id = "file" + i.toString() + " > " + files[i].name;
+				xhr.upload.addEventListener("progress", progressCallback, false);
+				xhr.addEventListener("load", loadCallback, false);
+				xhr.onerror = function(err) {
+					alert("Upload failed: " + err + ". See console for more information");
+					console.log(err);
+				};
+				if (cfg.hostnames[i] === "HOSTEDLOCATION") {
+					xhr.open("POST", "upload", true);
+				} else {
+					xhr.open("POST", cfg.hostnames[locIndex] + "/upload", true);
+				}
+				try {
+					xhr.send(formdata);
+				} catch (e) {
+					alert("Unable to send: " + JSON.stringify(e) + ". For more information see the console.");
+					throw e;
+				}
+			}
+
+			// if (whichRadialSelected() === "localhostRadial") {
+			// 	xhr = new XMLHttpRequest();
+			// 	xhr.open("POST", "upload", true);
+			// 	xhr.upload.id = "file" + i.toString() + " > " + files[i].name;
+			// 	xhr.upload.addEventListener("progress", progressCallback, false);
+			// 	xhr.addEventListener("load", loadCallback, false);
+			// 	xhr.onerror = function(err) {
+			// 		console.log("xhr errored", err);
+			// 		console.log("erase me, time of error:", Date.now());
+			// 	};
+			// 	xhr.send(formdata);
+			// } else {
+			// 	for (let i = 0; i < config.suffixes.length; i++) {
+			// 		xhr = new XMLHttpRequest();
+			// 		if (xhr.withCredentials) {
+			// 			console.log("xhr.withCredentials");
+			// 		} else {
+			// 			console.log("DOESNT HAVE xhr.withCredentials");
+			// 		}
+			// 		xhr.open("POST",
+			// 			config.hostname + config.suffixes[i] + ":" + config.port + "/upload", true);
+			// 		// xhr.setRequestHeader('X-PINGOTHER', 'pingpong');
+			// 		// console.log("erase me, setrequestheader");
+			// 		xhr.upload.id = "file" + i.toString() + " > " + files[i].name;
+			// 		xhr.upload.addEventListener("progress", progressCallback, false);
+			// 		xhr.addEventListener("load", loadCallback, false);
+			// 		xhr.onerror = function(err) {
+			// 			console.log("xhr errored", err);
+			// 			console.log("erase me, time of error:", Date.now());
+			// 		};
+			// 		xhr.send(formdata);
+			// 	}
+			// }
+
 		} else {
 			// show message for 4 seconds
 			console.log("File: " + files[i].name + " is too large (max size is " +

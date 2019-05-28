@@ -28,7 +28,6 @@ Process http requests.
 Currently only handles GET requests.
 */
 HttpServer.prototype.onreq = function(req, res) {
-
 	if (req.method === "GET") {
 		var reqURL = url.parse(req.url); //parse url into a json object with parts as fields
 		var getName = decodeURIComponent(reqURL.pathname);
@@ -58,17 +57,18 @@ HttpServer.prototype.onreq = function(req, res) {
 				this.redirect(res, getName+"/index.html"); //prevent directory snooping
 				return;
 			} else { //else give back the file
-
 				var header = {};
 				header["Content-Type"] = mime.lookup(requestPath);
 				header["Access-Control-Allow-Headers" ] = "Range";
 				header["Access-Control-Expose-Headers"] = "Accept-Ranges, Content-Encoding, Content-Length, Content-Range";
 
 				if (req.headers.origin !== undefined) {
-					header["Access-Control-Allow-Origin" ]     = req.headers.origin;
-					header["Access-Control-Allow-Methods"]     = "GET";
+					header["Access-Control-Allow-Origin" ]     = "*" ; //req.headers.origin;
+					header["Access-Control-Allow-Methods"]     = "GET, POST, PATCH, PUT, DELETE, OPTIONS";
 					header["Access-Control-Allow-Headers"]     = "X-Requested-With, X-HTTP-Method-Override, Content-Type, Accept";
-					header["Access-Control-Allow-Credentials"] = true;
+					// header["Access-Control-Allow-Headers"]     = "Origin, X-Requested-With, Content-Type, Accept";
+					// header["Access-Control-Allow-Headers"]     = "Origin, Content-Type, X-Auth-Token";
+					header["Access-Control-Allow-Credentials"] = false;
 				}
 
 				var total = stats.size;
@@ -107,32 +107,7 @@ HttpServer.prototype.onreq = function(req, res) {
 			res.end();
 			return;
 		}
-	}//end if req.method == get
-	else if (req.method === "POST") {
-		
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-		var postName = url.parse(req.url).pathname;
-
+	} else if (req.method === "POST") {
 		var form     = new Formidable.IncomingForm();
 		// Limits the amount of memory all fields together (except files) can allocate in bytes.
 		//    set to 4MB.
@@ -143,24 +118,16 @@ HttpServer.prototype.onreq = function(req, res) {
 		form.type          = "multipart";
 		form.multiples     = true;
 	
-		form.on("fileBegin", function(name, file) {
-			utils.debugPrint("Upload initiated");
-		});
+		form.on("fileBegin", function(name, file) { utils.debugPrint("Upload initiated"); });
 	
-		form.on("error", function(err) {
-			console.log("Error during upload", err);
-		});
+		form.on("error", function(err) { console.log("Error during upload", err); });
 	
-		form.on("field", function(field, value) {
-			// // Keep user information
-			// if (field === "ptrName") {
-			// 	ptrName = value;
-			// 	utils.debugprint("Upload", "by", ptrName);
-			// }
-		});
+		form.on("field", function(field, value) { });
 	
 		form.parse(req, function(err, fields, files) {
 			var header = HttpServer.prototype.buildHeader();
+			// Allow any source to upload
+			header["Access-Control-Allow-Origin" ]     = "*" ;
 			if (err) {
 				header["Content-Type"] = "text/plain";
 				res.writeHead(500, header);
@@ -173,7 +140,6 @@ HttpServer.prototype.onreq = function(req, res) {
 			res.writeHead(200, header);
 			// For webix uploader: status: server
 			fields.done = true;
-	
 			// Get the file (only one even if multiple drops, it comes one by one)
 			var file = files[ Object.keys(files)[0] ];
 			utils.debugPrint("parsing file: " + file);
@@ -186,35 +152,42 @@ HttpServer.prototype.onreq = function(req, res) {
 			// This magical variable, openedFiles is part of the Formidable. "this" is the form
 			utils.debugPrint("Form upload ended", this.openedFiles);
 			HttpServer.prototype.putUploadedFilesInCorrectSpot(this.openedFiles);
+
+			HttpServer.prototype.unzipTheMovedFile(this.openedFiles);
 		});
+	} else if (req.method === "OPTIONS") {
+		// OPTIONS section needed for cross site upload
+		// See POST section for code comments on this section.
+		var form     = new Formidable.IncomingForm();
+		form.maxFieldsSize = 4 * 1024 * 1024;
+		form.maxFileSize = 20 * (1024 * 1024 * 1024);
+		form.type          = "multipart";
+		form.multiples     = true;
+	
+		form.on("fileBegin", function(name, file) { utils.debugPrint("Upload initiated"); });
+	
+		form.on("error", function(err) { console.log("Error during upload", err); });
+	
+		form.on("field", function(field, value) { });
+	
+		form.parse(req, function(err, fields, files) {
+			var header = HttpServer.prototype.buildHeader();
+			header["Access-Control-Allow-Origin" ]     = "*" ;
+			if (err) {
+				header["Content-Type"] = "text/plain";
+				res.writeHead(500, header);
+				res.write(err + "\n\n");
+				res.end();
+				return;
+			}
+			header["Content-Type"] = "application/json";
+			res.writeHead(200, header);
+			fields.done = true;
+			var file = files[ Object.keys(files)[0] ];
+			res.end(JSON.stringify({status: "server", fields: fields, files: files})); });
+	
+		form.on("end", function() { HttpServer.prototype.putUploadedFilesInCorrectSpot(this.openedFiles); });
 		
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
 	} else {
 		// File not found: 404 HTTP error, with link to index page
 		res.writeHead(404, {"Content-Type": "text/html"});
@@ -226,11 +199,9 @@ HttpServer.prototype.onreq = function(req, res) {
 };
 
 
-
 /*
 */
 HttpServer.prototype.putUploadedFilesInCorrectSpot = function(files) {
-
 	utils.debugPrint("Need to move the file to a correct location at this point in time");
 
 	// First make sure directory destination exists
@@ -253,12 +224,25 @@ HttpServer.prototype.putUploadedFilesInCorrectSpot = function(files) {
 		fileDestinationPath = path.join(directoryDestination, file.name);
 		fs.renameSync(file.path, fileDestinationPath);
 		
-		utils.debugPrint("Should be done moving: ", fileDestinationPath, "Progress: ", i + 1, "/", fileKeys.length);
+		utils.debugPrint("Should be done moving: " + fileDestinationPath, "http");
+		utils.debugPrint("Progress: " + (i + 1) + "/" + fileKeys.length, "http");
 	}
 };
 
-
-
+/*
+*/
+HttpServer.prototype.unzipTheMovedFile = function(files) {
+	// Now potentially unzip after checking the filetype
+	let fileKeys = Object.keys(files);
+	let file, fileDestinationPath;
+	let directoryDestination = global.destinationFolder;
+	if (!utils.doesFolderExist(directoryDestination)) { fs.mkdirSync(directoryDestination); }
+	for (let i = 0; i < fileKeys.length; i++) {
+		file = files[fileKeys[i]];
+		fileDestinationPath = path.join(directoryDestination, file.name);
+		console.log("Unzip command could be done on ", fileDestinationPath);
+	}
+}
 
 
 /**
@@ -273,14 +257,6 @@ HttpServer.prototype.redirect = function(res, aurl) {
 	res.writeHead(302, {"Location": aurl});
 	res.end();
 };
-
-
-
-
-
-
-
-
 
 
 /**

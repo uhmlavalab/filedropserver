@@ -12,7 +12,7 @@ var configSetup = require("./config.js");
 
 //---------------------------------------------------------------------------WebServer variables
 var webVars = {};
-	webVars.port        = 9001;
+	webVars.port        = global.port; // See /config.js
 	webVars.httpServer  = new httpServer("public");
 	webVars.mainServer  = null;
 	webVars.wsioServer  = null;
